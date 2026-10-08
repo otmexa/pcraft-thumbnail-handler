@@ -4,35 +4,41 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$source = Join-Path $root 'PcraftThumbnailProvider.cs'
-$assemblyInfo = Join-Path $root 'AssemblyInfo.cs'
 $bin = Join-Path $root 'bin'
 $dll = Join-Path $bin 'PhotoCraft.PcraftThumbnailHandler.dll'
-$popplerSource = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\native\poppler\Library\bin'
+$buildScript = Join-Path $root 'build.ps1'
+$payloadArchive = Join-Path $bin 'PhotoCraftThumbnailPayload.zip'
 $popplerTarget = Join-Path $bin 'poppler'
-$csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $assemblyVersion = '1.0.0.0'
 
-if (-not (Test-Path -LiteralPath $csc)) {
-    throw "No se encontró el compilador .NET Framework de 64 bits: $csc"
+if (-not (Test-Path -LiteralPath $buildScript -PathType Leaf)) {
+    throw "No se encontró el script de compilación: $buildScript"
 }
 
-New-Item -ItemType Directory -Force -Path $bin | Out-Null
-& $csc /nologo /target:library /platform:x64 /optimize+ /debug- `
-    /out:$dll `
-    /reference:System.dll,System.Core.dll,System.Drawing.dll,System.IO.Compression.dll,System.IO.Compression.FileSystem.dll `
-    $source, $assemblyInfo
-
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dll)) {
-    throw 'No se pudo compilar el handler de miniaturas.'
+& $buildScript -OutputDirectory $bin
+if (-not (Test-Path -LiteralPath $dll -PathType Leaf) -or -not (Test-Path -LiteralPath $payloadArchive -PathType Leaf)) {
+    throw 'No se pudieron generar los componentes del handler.'
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $popplerSource 'pdftoppm.exe'))) {
-    throw "No se encontró pdftoppm.exe en el runtime local: $popplerSource"
+$payloadTemp = Join-Path ([System.IO.Path]::GetTempPath()) ('ThumbnailCraft-Install-' + [Guid]::NewGuid().ToString('N'))
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+try {
+    New-Item -ItemType Directory -Force -Path $payloadTemp, $popplerTarget | Out-Null
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($payloadArchive, $payloadTemp)
+    $popplerSource = Join-Path $payloadTemp 'poppler'
+    if (-not (Test-Path -LiteralPath (Join-Path $popplerSource 'pdftoppm.exe') -PathType Leaf)) {
+        throw 'El runtime incluido está incompleto: falta poppler/pdftoppm.exe.'
+    }
+    Copy-Item -Path (Join-Path $popplerSource '*') -Destination $popplerTarget -Recurse -Force
+} finally {
+    $tempPath = [System.IO.Path]::GetFullPath($payloadTemp)
+    $tempPrefix = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if ($tempPath.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
+        (Split-Path -Leaf $tempPath).StartsWith('ThumbnailCraft-Install-', [System.StringComparison]::OrdinalIgnoreCase) -and
+        (Test-Path -LiteralPath $tempPath -PathType Container)) {
+        Remove-Item -LiteralPath $tempPath -Recurse -Force
+    }
 }
-
-New-Item -ItemType Directory -Force -Path $popplerTarget | Out-Null
-Copy-Item -Path (Join-Path $popplerSource '*') -Destination $popplerTarget -Force
 
 $clsid = '{D4E4A682-2E13-4ABF-8E5C-7B4885A85A0B}'
 $thumbShellEx = '{E357FCCD-A995-4576-B01F-234630154E96}'

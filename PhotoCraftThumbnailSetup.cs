@@ -341,7 +341,7 @@ internal static class PhotoCraftThumbnailSetup
             {
                 string parent = path.Substring(0, path.LastIndexOf('\\'));
                 string name = path.Substring(path.LastIndexOf('\\') + 1);
-                using (RegistryKey parentKey = Registry.LocalMachine.OpenSubKey(parent, true))
+                using (RegistryKey parentKey = root.OpenSubKey(parent, true))
                 {
                     if (parentKey != null) parentKey.DeleteSubKeyTree(name, false);
                 }

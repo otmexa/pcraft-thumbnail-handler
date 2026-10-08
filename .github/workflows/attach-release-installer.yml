@@ -1,0 +1,34 @@
+name: Attach Windows installer
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-attach:
+    name: Build installer for the published tag
+    runs-on: windows-2025
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v6
+
+      - name: Build installer and run self-test
+        shell: pwsh
+        run: ./build.ps1 -OutputDirectory ./dist -RunSelfTest
+
+      - name: Attach installer and checksum to the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'dist\ThumbnailCraftSetup.exe'
+          $checksum = Join-Path $env:GITHUB_WORKSPACE 'dist\ThumbnailCraftSetup.exe.sha256'
+          gh release upload $tag $installer $checksum --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not attach build outputs to release $tag." }

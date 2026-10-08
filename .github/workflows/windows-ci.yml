@@ -1,0 +1,39 @@
+name: Windows CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and self-test x64 installer
+    runs-on: windows-2025
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Build installer and run self-test
+        shell: pwsh
+        run: ./build.ps1 -OutputDirectory ./dist -RunSelfTest
+
+      - name: Save installer as workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ThumbnailCraftSetup-${{ github.run_number }}
+          path: |
+            dist/ThumbnailCraftSetup.exe
+            dist/ThumbnailCraftSetup.exe.sha256
+          if-no-files-found: error
+          retention-days: 30

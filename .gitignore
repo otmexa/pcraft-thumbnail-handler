@@ -1,5 +1,6 @@
 # Generated handler and local test binaries
 /bin/
+/dist/
 
 # Visual QA output
 /ThumbnailCraft-install-preview.png
