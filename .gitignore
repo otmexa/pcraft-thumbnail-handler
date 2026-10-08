@@ -1,0 +1,10 @@
+# Generated handler and local test binaries
+/bin/
+
+# Visual QA output
+/ThumbnailCraft-install-preview.png
+/ThumbnailCraft-already-installed-preview.png
+/ThumbnailCraftSetup-icon-check.png
+
+# Superseded installer name
+/PhotoCraftThumbnailSetup.exe
